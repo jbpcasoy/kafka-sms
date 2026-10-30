@@ -1,5 +1,7 @@
 # Working rules for AI agents in this repo
 
+@AGENTS.md
+
 The repo owner (@jbpcasoy) is the human validator. Agents propose; the human merges.
 
 ## Workflow
@@ -8,33 +10,31 @@ The repo owner (@jbpcasoy) is the human validator. Agents propose; the human mer
 2. Never push to `main`. Never merge a pull request, approve one, or enable auto-merge.
 3. Keep PRs small (aim for < 400 changed lines) so they can be reviewed on a phone.
 4. Fill in every section of `.github/pull_request_template.md`, especially
-   "How to validate (from a phone)".
+   "How to validate (from a phone)", written as steps on the Vercel preview link.
 5. Run the checks below before pushing. Never skip, delete or weaken a test to get CI green.
 
 ## Checks
 
 ```bash
-cd services/<service>
-uv sync && uv run ruff check . && uv run ruff format --check . && uv run pytest -q
+npm ci && npm run lint && npm run typecheck && npm test && npm run build
 ```
 
-End-to-end (needs Docker): `docker compose up --build -d --wait && uv run --with pytest --with confluent-kafka pytest -q tests/e2e`
+## Stack
 
-## Architecture
-
-- One service per bounded context under `services/<name>/` (Python 3.12, FastAPI, confluent-kafka, uv).
-  Planned contexts: student, enrollment, attendance, grading, notification.
-- Services talk to each other only via Kafka events, never by calling each other's HTTP APIs
-  or sharing a database.
-- Topic names: `sms.<entity>.<past-tense-verb>.v<N>`, e.g. `sms.student.enrolled.v1`.
-  A breaking payload change means a new `.vN+1` topic, not an edit.
-- Every event uses the `EventEnvelope` shape (`event_id`, `event_type`, `occurred_at`, `payload`).
-  Key messages by the aggregate id (e.g. `student_id`) so per-entity ordering holds.
-- Consumers must be idempotent: dedupe on `event_id`.
-- Each new service gets: a Dockerfile, an entry in `docker-compose.yml`, a CI job in
-  `.github/workflows/ci.yml`, and a Dependabot entry.
+- Next.js 16 (App Router, `src/`, TypeScript, Tailwind), deployed on Vercel.
+  Next.js 16 differs from older versions: read `node_modules/next/dist/docs/` before using
+  an API you're unsure of. `cacheComponents` is on, so request-time data goes inside
+  `<Suspense>` after `await connection()`.
+- Supabase Postgres. Access the database only from server code via `getSupabase()` in
+  `src/lib/supabase.ts` (secret key). Never expose the secret key or add `NEXT_PUBLIC_` to it.
+- Every table has Row Level Security enabled. Don't add public policies without the owner asking.
+- Schema changes: add a new timestamped file in `supabase/migrations/`. Never edit a merged one.
+  Mention it in the PR so the owner runs it before merging.
+- Mutations are Server Actions with `useActionState` forms; validate input in a pure function
+  under `src/lib/` and unit-test it with Vitest (`*.test.ts` next to the code).
+- UI must work at phone width first.
 
 ## Data
 
 Student records are personal data about minors. Use obviously fake names in tests and fixtures,
-and never log full payloads containing personal fields.
+and never log full records.
