@@ -3,7 +3,7 @@ name = "student-service"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
+    "fastapi>=0.162.2",
     "uvicorn[standard]>=0.32",
     "confluent-kafka>=2.6",
     "pydantic>=2.9",
